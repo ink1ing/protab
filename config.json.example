@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "ProTab",
+    "version": "1.0.0",
+    "debug": false
+  },
+  "paths": {
+    "work_directory": "${HOME}/Desktop/ProTab",
+    "scripts_directory": "${HOME}/Desktop/ProTab/shortcuts"
+  },
+  "keyboard": {
+    "trigger_key": "tab",
+    "wait_timeout_ms": 1000,
+    "shortcuts": {
+      "t": "new_terminal.sh",
+      "c": "new_claude_code.sh",
+      "p": "new_private_tab.sh",
+      "s": "screenshot.sh",
+      "r": "record.sh",
+      "m": "clean_ram.sh",
+      "n": "network_test.sh",
+      "q": "open_force_quit.sh"
+    }
+  },
+  "services": {
+    "api_endpoint": "http://localhost:8080",
+    "timeout_seconds": 10
+  },
+  "ui": {
+    "app_name": "ProTab",
+    "show_notifications": true,
+    "color_theme": "auto"
+  },
+  "system": {
+    "require_accessibility_permission": true,
+    "auto_start": false,
+    "debug_mode": false
+  }
+}
