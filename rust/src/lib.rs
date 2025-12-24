@@ -190,7 +190,7 @@ pub fn get_memory_info() -> Result<MemoryInfo> {
         return Err(anyhow!("Failed to get memory statistics: {}", result));
     }
 
-    // 使用正确的页面大小 (从vm_stat显示为16KB)
+    // Use correct page size (从vm_stat显示为16KB)
     let page_size = 16384u64;
 
     let active = vm_stats.active_count as u64 * page_size;
@@ -201,10 +201,10 @@ pub fn get_memory_info() -> Result<MemoryInfo> {
     let speculative = vm_stats.speculative_count as u64 * page_size;
     let free_count = vm_stats.free_count as u64 * page_size;
 
-    // 匹配 macOS 活动监视器的计算方式:
+    // Match macOS Activity Monitor calculation:
     // Memory Used = App Memory + Wired + Compressed
-    // App Memory ≈ Active - Purgeable (真正被应用使用的内存)
-    // 注意: inactive 和 speculative 被视为可回收，不计入 "已使用"
+    // App Memory ≈ Active - Purgeable (memory used by apps)
+    // Note: inactive 和 speculative 被视为可回收，不计入 "已使用"
     let app_memory = active.saturating_sub(purgeable);
     let used = app_memory + wired + compressed;
     let free = free_count + inactive + purgeable + speculative;
@@ -227,7 +227,7 @@ pub fn cleanup_memory() -> Result<(MemoryInfo, MemoryInfo, f64)> {
     // 获取清理前的内存信息
     let before = get_memory_info()?;
 
-    println!("正在清理内存...");
+    println!("Cleaning memory...");
 
     // 1. 多轮 purge 命令预清理
     for _ in 0..3 {
