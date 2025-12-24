@@ -201,11 +201,13 @@ pub fn get_memory_info() -> Result<MemoryInfo> {
     let speculative = vm_stats.speculative_count as u64 * page_size;
     let free_count = vm_stats.free_count as u64 * page_size;
 
-    // 修正计算方式：使用 top 命令的逻辑
-    // 已使用 = active + inactive + wired + compressed
-    // 未使用 = free + purgeable + speculative (这些可以被回收)
-    let used = active + inactive + wired + compressed;
-    let free = free_count + purgeable + speculative;
+    // 匹配 macOS 活动监视器的计算方式:
+    // Memory Used = App Memory + Wired + Compressed
+    // App Memory ≈ Active - Purgeable (真正被应用使用的内存)
+    // 注意: inactive 和 speculative 被视为可回收，不计入 "已使用"
+    let app_memory = active.saturating_sub(purgeable);
+    let used = app_memory + wired + compressed;
+    let free = free_count + inactive + purgeable + speculative;
 
     Ok(MemoryInfo {
         total,
