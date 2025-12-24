@@ -11,17 +11,55 @@ class TabKeyMonitor {
         // 打印配置信息（仅在调试模式下）
         config.printConfiguration()
 
-        // 申请辅助功能权限
+        // 检查并申请辅助功能权限
         if !AXIsProcessTrusted() {
+            // 显示系统权限弹窗
             let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as NSString: true]
             _ = AXIsProcessTrustedWithOptions(options)
-
-            print("需要辅助功能权限")
-            print("请在系统偏好设置 > 安全性与隐私 > 辅助功能中添加终端或此应用")
+            
+            // 显示用户友好的通知
+            showNotification(title: "ProTab 需要权限", message: "请在系统设置中授予辅助功能权限，然后重新启动 ProTab")
+            
+            // 打开系统设置的辅助功能页面
+            openAccessibilitySettings()
+            
+            print("⚠️ 需要辅助功能权限")
+            print("请在系统设置 > 隐私与安全性 > 辅助功能中添加此应用")
+            print("授权后请重新启动 ProTab")
+            
+            // 等待几秒让用户看到提示
+            Thread.sleep(forTimeInterval: 3)
             return
         }
+        
+        // 权限已获得，显示成功通知
+        showNotification(title: "ProTab 已启动", message: "全局快捷键已激活 ✓")
+        print("✅ ProTab 全局快捷键监听器已启动")
 
         setupEventTap()
+    }
+    
+    private func showNotification(title: String, message: String) {
+        let script = "display notification \"\(message)\" with title \"\(title)\""
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
+    }
+    
+    private func openAccessibilitySettings() {
+        // 打开系统设置的辅助功能页面
+        let script = """
+        tell application "System Settings"
+            activate
+            delay 0.5
+        end tell
+        do shell script "open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'"
+        """
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
     }
 
     private func setupEventTap() {
@@ -40,13 +78,35 @@ class TabKeyMonitor {
         )
 
         guard let eventTap = eventTap else {
-            print("无法创建全局事件监听")
+            print("❌ 无法创建全局事件监听")
+            print("   请确保在系统设置 > 隐私与安全性 > 辅助功能 中已授权")
             return
         }
 
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        
+        print("✅ 全局事件监听已启动")
+        
+        // 添加事件tap失效检测和自动重启
+        // macOS会在eventTap响应太慢时禁用它，我们需要监控并重启
+        DispatchQueue.global().async { [weak self] in
+            while true {
+                Thread.sleep(forTimeInterval: 5.0)
+                
+                guard let self = self, let tap = self.eventTap else {
+                    break
+                }
+                
+                // 检查事件tap是否仍然启用
+                if !CGEvent.tapIsEnabled(tap: tap) {
+                    print("⚠️ 事件监听被禁用，正在重新启用...")
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                    print("✅ 事件监听已重新启用")
+                }
+            }
+        }
     }
 
     private func handleKeyEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {

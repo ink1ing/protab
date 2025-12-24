@@ -1,7 +1,7 @@
 # ProTab Makefile
 # 提供标准化的构建、测试和开发工具
 
-.PHONY: help build test test-swift test-shell test-integration clean install dev setup coverage
+.PHONY: help build build-rust build-c test test-swift test-shell test-integration clean install dev setup coverage
 
 # 默认目标
 all: build test
@@ -12,7 +12,9 @@ help:
 	@echo "======================"
 	@echo ""
 	@echo "可用目标:"
-	@echo "  build                编译 Swift 程序"
+	@echo "  build                编译所有程序 (Swift + Rust + C)"
+	@echo "  build-rust           只编译 Rust 内存清理器"
+	@echo "  build-c              只编译 C 版本程序"
 	@echo "  test                 运行所有测试"
 	@echo "  test-swift           只运行 Swift 测试"
 	@echo "  test-shell           只运行 Shell 测试"
@@ -25,10 +27,21 @@ help:
 	@echo "  help                 显示此帮助信息"
 	@echo ""
 
-# 编译Swift程序
-build:
-	@echo "🔨 编译 ProTab..."
+# 编译所有程序
+build: build-rust
+	@echo "🔨 编译 ProTab Swift 程序..."
 	@./build.sh
+
+# 编译 Rust 内存清理器
+build-rust:
+	@echo "🦀 编译 Rust 内存清理器..."
+	@cd rust && cargo build --release
+	@echo "✅ Rust 内存清理器编译完成: rust/target/release/freeup_ram_rust"
+
+# 编译 C 版本程序（备用）
+build-c:
+	@echo "🔧 编译 C 内存清理器..."
+	@clang -O2 -o freeup_ram freeup_ram.c
 
 # 运行所有测试
 test:
@@ -80,8 +93,8 @@ install: build
 
 # 初次配置设置
 setup:
-	@echo "⚙️  运行 ProTab 初次配置..."
-	@./config.command
+	@echo "⚙️  ProTab 配置已简化，无需额外设置"
+	@echo "✅ 项目已就绪，运行 make build 开始使用"
 
 # 开发者模式（构建并运行）
 dev: build
@@ -103,7 +116,7 @@ verify: clean build test
 # 开发者工具
 lint:
 	@echo "🔍 代码检查..."
-	@for script in *.sh shortcuts/*.sh lib/*.sh tests/**/*.sh; do \
+	@for script in *.sh shortcuts/*.sh tests/**/*.sh; do \
 		if [ -f "$$script" ]; then \
 			echo "检查: $$script"; \
 			bash -n "$$script" || exit 1; \
@@ -173,7 +186,7 @@ status:
 	@echo "📊 ProTab 项目状态"
 	@echo "=================="
 	@echo "项目路径: $(PWD)"
-	@echo "Swift文件: $(shell find . -name "*.swift" | wc -l)"
+	@echo "Swift文件: $(shell find swift -name "*.swift" 2>/dev/null | wc -l)"
 	@echo "Shell脚本: $(shell find . -name "*.sh" | wc -l)"
 	@echo "配置文件: $(shell find . -name "*.json" | wc -l)"
 	@echo "测试文件: $(shell find tests -name "test_*.sh" 2>/dev/null | wc -l)"

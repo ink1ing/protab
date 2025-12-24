@@ -15,7 +15,7 @@ fi
 echo "Compiling ProTab..."
 
 # 编译 Swift 文件
-swiftc ProTabConfig.swift tab_monitor.swift main.swift -o tab_monitor 2>&1
+swiftc swift/ProTabConfig.swift swift/tab_monitor.swift swift/main.swift -o tab_monitor 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✅ Compilation successful"
@@ -26,7 +26,6 @@ if [ $? -eq 0 ]; then
 
     echo
     echo "To run: ./tab_monitor"
-    echo "To run with config: PROTAB_CONFIG=./config.json ./tab_monitor"
 else
     echo "❌ Compilation failed"
     exit 1

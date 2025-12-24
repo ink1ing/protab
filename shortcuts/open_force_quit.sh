@@ -1,27 +1,7 @@
 #!/bin/bash
-# Tab+F - 打开Force Quit
-
-
-# 导入配置库
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$(dirname "$SCRIPT_DIR")/lib/config.sh" || {
-    echo "Error: Cannot load configuration library" >&2
-    exit 1
-}
-
-# 初始化配置
-if ! init_config; then
-    echo "Error: Failed to initialize configuration" >&2
-    exit 1
-fi
-
-# 获取通用配置
-WORK_DIR=$(get_config "paths.work_directory")
-CLAUDE_DIR=$(get_config "paths.claude_config_dir")
-APP_NAME=$(get_config "ui.notification_title")
-TERMINAL_APP=$(get_config "ui.terminal_app")
-EDITOR_APP=$(get_config "ui.editor_app")
+# 打开强制退出
 
 osascript -e "tell application \"System Events\" to key code 53 using {option down, command down}"
 
-osascript -e 'display notification "Force Quit opened" with title "$APP_NAME"'
+# 显示通知
+osascript -e 'display notification "Force Quit opened" with title "ProTab"'

@@ -151,6 +151,11 @@ class ProTabConfig {
     }
 
     var shortcutsDirectory: String {
+        // 支持两种配置键名
+        let dir1 = getValue("paths.scripts_directory", defaultValue: "")
+        if !dir1.isEmpty {
+            return dir1
+        }
         return getValue("paths.shortcuts_dir", defaultValue: "\(workDirectory)/shortcuts")
     }
 

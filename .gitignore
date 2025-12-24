@@ -19,6 +19,10 @@ tab_monitor
 *.o
 *.dylib
 
+# Rust build artifacts
+rust/target/
+# Keep Cargo.lock for reproducible builds in rust/
+
 # Configuration files with sensitive data
 config.json
 *.bak
@@ -85,3 +89,5 @@ release/
 # Temporary directories
 tmp/
 temp/
+
+# Added by cargo

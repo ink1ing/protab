@@ -1,425 +1,363 @@
 #!/bin/bash
-# ProTab 主控制脚本
-# 提供多种快捷操作和配置管理
+# Copilot API 交互式控制脚本
+# 提供多种API操作选项
 
-# 导入配置库
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/config.sh" || {
-    echo "Error: Cannot load configuration library"
-    echo "Please ensure lib/config.sh exists"
-    exit 1
+# 获取用户Claude配置路径的函数
+get_claude_path() {
+    # 尝试多种可能的路径
+    local possible_paths=(
+        "$HOME/.claude"
+        "/Users/$USER/.claude"
+        "/Users/$(whoami)/.claude"
+    )
+
+    for path in "${possible_paths[@]}"; do
+        if [ -d "$path" ] && [ -f "$path/CLAUDE.md" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    # 如果找不到，尝试搜索用户目录
+    local search_result
+    search_result=$(find /Users -maxdepth 2 -name ".claude" -type d 2>/dev/null | head -1)
+    if [ -n "$search_result" ] && [ -f "$search_result/CLAUDE.md" ]; then
+        echo "$search_result"
+        return 0
+    fi
+
+    # 如果仍然找不到，使用交互式选择
+    echo "未找到Claude配置目录，请手动选择..."
+    local selected_path
+    selected_path=$(osascript -e '
+        try
+            tell application "System Events"
+                activate
+                set theFolder to choose folder with prompt "请选择您的 .claude 配置文件夹："
+                return POSIX path of theFolder
+            end tell
+        on error
+            return ""
+        end try
+    ' 2>/dev/null)
+
+    if [ -n "$selected_path" ]; then
+        # 移除末尾的斜杠
+        echo "${selected_path%/}"
+        return 0
+    fi
+
+    # 最后回退到默认路径
+    echo "$HOME/.claude"
+    return 1
 }
 
-# 颜色和样式
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[0;37m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
+# 缓存Claude路径到临时文件
+CLAUDE_PATH_CACHE="/tmp/protab_claude_path"
+
+get_cached_claude_path() {
+    if [ -f "$CLAUDE_PATH_CACHE" ]; then
+        local cached_path=$(cat "$CLAUDE_PATH_CACHE")
+        # 验证缓存的路径是否仍然有效
+        if [ -d "$cached_path" ]; then
+            echo "$cached_path"
+            return 0
+        else
+            # 缓存无效，删除
+            rm -f "$CLAUDE_PATH_CACHE"
+        fi
+    fi
+
+    # 重新检测并缓存
+    local claude_path=$(get_claude_path)
+    echo "$claude_path" > "$CLAUDE_PATH_CACHE"
+    echo "$claude_path"
+}
 
 # 清屏函数
 clear_screen() {
     clear
-    echo -e "${BLUE}${BOLD}"
+}
+
+
+# 设置全局快捷键
+setup_global_shortcuts() {
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # 检查是否已有守护进程运行
+    if pgrep -f "tab_monitor" > /dev/null; then
+        return 0
+    fi
+
+    # 编译Tab监听器
+    if [ ! -f "$script_dir/tab_monitor" ]; then
+        if swiftc "$script_dir/swift/ProTabConfig.swift" "$script_dir/swift/tab_monitor.swift" "$script_dir/swift/main.swift" -o "$script_dir/tab_monitor" 2>/dev/null; then
+            echo "Ready"
+        else
+            echo "Failed"
+            return 1
+        fi
+    fi
+
+    # 后台运行Tab键监听器
+    "$script_dir/tab_monitor" &
+}
+
+# 显示菜单
+show_menu() {
+    echo -e "\033[34m"
     echo "██████╗ ██████╗  ██████╗ ████████╗ █████╗ ██████╗ "
     echo "██╔══██╗██╔══██╗██╔═══██╗╚══██╔══╝██╔══██╗██╔══██╗"
     echo "██████╔╝██████╔╝██║   ██║   ██║   ███████║██████╔╝"
     echo "██╔═══╝ ██╔══██╗██║   ██║   ██║   ██╔══██║██╔══██╗"
     echo "██║     ██║  ██║╚██████╔╝   ██║   ██║  ██║██████╔╝"
     echo "╚═╝     ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═════╝ "
-    echo -e "${NC}"
-    echo -e "${CYAN}Main Control Panel${NC}"
-    echo "=================================="
-    echo
+    echo -e "\033[0m"
+    echo ""
+    echo "cozy v2.0"
+    echo "c. start copilot-api"
+    echo "a. auth copilot-api"
+    echo "m. edit claude.md"
+    echo "j. edit settings.json"
+    echo "l. new claude code"
+    echo "u. update claude code"
+    echo "f. open force quit"
+    echo "t. new system terminal"
+    echo "p. new private tab"
+    echo "r. free up ram"
+    echo "q. test web&ip"
+    echo "s. screenshot"
+    echo "v. screen record"
+    echo "x. toggle vpn"
+    echo -n ""
 }
 
-# 检查配置状态
-check_config() {
-    if ! init_config 2>/dev/null; then
-        echo -e "${RED}Configuration not found${NC}"
-        echo "Please run configuration setup first."
-        echo
-        echo -e "${WHITE}Options:${NC}"
-        echo "1. Run quick setup: ./config.command setup"
-        echo "2. Run interactive setup: ./config.command"
-        echo
-        return 1
-    fi
-    return 0
+# 在新终端中执行命令的函数
+run_in_new_terminal() {
+    local command="$1"
+    local title="$2"
+
+    # 使用 osascript 在新的终端窗口中运行命令
+    osascript -e "
+        tell application \"Terminal\"
+            activate
+            do script \"echo '执行: $command'; echo ''; $command\"
+            set custom title of front window to \"$title\"
+        end tell
+    "
 }
 
-# 获取配置值（带默认值）
-get_config_safe() {
-    local key="$1"
-    local default="$2"
-    local value=$(get_config "$key" 2>/dev/null)
-    echo "${value:-$default}"
-}
 
-# 检查依赖
-check_dependencies() {
-    local missing_deps=()
+# 系统内存清理函数
+clear_system_memory() {
+    # 获取脚本所在目录
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    # 检查 Swift 编译器
-    if ! command -v swiftc &> /dev/null; then
-        missing_deps+=("Swift compiler (install Xcode Command Line Tools)")
-    fi
-
-    # 检查 jq (可选)
-    if ! command -v jq &> /dev/null; then
-        echo -e "${YELLOW}Warning: jq not found. Some features may be limited.${NC}"
-        echo "Install with: brew install jq"
-        echo
-    fi
-
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        echo -e "${RED}Missing dependencies:${NC}"
-        for dep in "${missing_deps[@]}"; do
-            echo "  - $dep"
-        done
-        echo
-        return 1
-    fi
-
-    return 0
-}
-
-# 设置全局快捷键
-setup_global_shortcuts() {
-    if ! check_config; then
-        return 1
-    fi
-
-    local work_dir=$(get_config_safe "paths.work_directory" "$SCRIPT_DIR")
-    local app_name=$(get_config_safe "ui.app_name" "ProTab")
-
-    echo -e "${CYAN}Setting up global shortcuts...${NC}"
-
-    # 检查是否已有守护进程运行
-    if pgrep -f "tab_monitor" > /dev/null; then
-        echo -e "${GREEN}Tab monitor already running${NC}"
-        return 0
-    fi
-
-    # 编译Tab监听器
-    if [ ! -f "$work_dir/tab_monitor" ]; then
-        echo "Compiling tab monitor..."
-        if [ -f "$work_dir/build.sh" ]; then
-            cd "$work_dir"
-            ./build.sh
+    # 首先尝试使用 Rust 版本
+    if [ -f "$script_dir/rust/target/release/freeup_ram_rust" ]; then
+        local result=$("$script_dir/rust/target/release/freeup_ram_rust" 2>&1 | tail -1)
+        osascript -e "display notification \"$result\" with title \"Cozy - Rust\""
+    else
+        # 回退到系统 purge 命令
+        if sudo purge 2>/dev/null; then
+            osascript -e 'display notification "内存清理完成" with title "Cozy"'
         else
-            # 手动编译
-            if [ -f "$work_dir/ProTabConfig.swift" ] && [ -f "$work_dir/tab_monitor.swift" ]; then
-                swiftc "$work_dir/ProTabConfig.swift" "$work_dir/tab_monitor.swift" -o "$work_dir/tab_monitor" 2>/dev/null
-            else
-                echo -e "${RED}Error: Swift source files not found${NC}"
-                return 1
-            fi
+            osascript -e 'display notification "内存清理失败" with title "Cozy"'
         fi
+    fi
+}
 
+# 网络连接测试函数
+test_network_connection() {
+    # 测试中国网络连通性
+    local cn_status="❌"
+    if curl -s --max-time 3 --connect-timeout 2 "https://www.gov.cn" > /dev/null 2>&1 && \
+       curl -s --max-time 3 --connect-timeout 2 "https://www.aliyun.com" > /dev/null 2>&1 && \
+       ping -c 1 -W 2000 114.114.114.114 > /dev/null 2>&1; then
+        cn_status="✅"
+    fi
+
+    # 测试国际网络连通性
+    local global_status="❌"
+    if curl -s --max-time 3 --connect-timeout 2 "https://www.cloudflare.com" > /dev/null 2>&1 && \
+       curl -s --max-time 3 --connect-timeout 2 "https://www.apple.com" > /dev/null 2>&1 && \
+       (ping -c 1 -W 2000 1.1.1.1 > /dev/null 2>&1 || ping -c 1 -W 2000 8.8.8.8 > /dev/null 2>&1); then
+        global_status="✅"
+    fi
+
+    # 获取IP地址
+    local ip_result
+    local ip_addr=$(curl -s --max-time 3 --connect-timeout 2 "https://ifconfig.me" 2>/dev/null | head -1)
+    if [ -n "$ip_addr" ]; then
+        ip_result="IP: ${ip_addr}"
+    else
+        ip_result="IP: unknown"
+    fi
+
+    # 通过系统通知显示结果
+    osascript -e "display notification \"CN: ${cn_status} Global: ${global_status} ${ip_result}\" with title \"Network Test\""
+}
+
+# 首次启动检测和欢迎
+first_time_setup() {
+    local setup_flag="/tmp/protab_setup_done"
+
+    if [ ! -f "$setup_flag" ]; then
+        clear
+        echo -e "\033[34m"
+        echo "██████╗ ██████╗  ██████╗ ████████╗ █████╗ ██████╗ "
+        echo "██╔══██╗██╔══██╗██╔═══██╗╚══██╔══╝██╔══██╗██╔══██╗"
+        echo "██████╔╝██████╔╝██║   ██║   ██║   ███████║██████╔╝"
+        echo "██╔═══╝ ██╔══██╗██║   ██║   ██║   ██╔══██║██╔══██╗"
+        echo "██║     ██║  ██║╚██████╔╝   ██║   ██║  ██║██████╔╝"
+        echo "╚═╝     ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═════╝ "
+        echo -e "\033[0m"
+        echo ""
+        echo "🎉 欢迎使用 ProTab!"
+        echo ""
+        echo "首次启动配置中..."
+        echo "正在检测Claude配置路径..."
+
+        # 预先检测Claude路径，如果需要用户选择会在这里进行
+        local claude_path=$(get_claude_path)
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}Compilation successful${NC}"
+            echo "✅ Claude配置路径: $claude_path"
         else
-            echo -e "${RED}Compilation failed${NC}"
-            return 1
+            echo "⚠️  未找到Claude配置，已使用默认路径"
         fi
+
+        echo ""
+        echo "🚀 设置完成！按任意键继续..."
+        read -n 1
+
+        # 标记设置完成
+        touch "$setup_flag"
     fi
-
-    # 启动Tab键监听器
-    echo "Starting tab monitor..."
-    cd "$work_dir"
-    PROTAB_CONFIG="$CONFIG_FILE" "$work_dir/tab_monitor" &
-
-    sleep 1
-
-    if pgrep -f "tab_monitor" > /dev/null; then
-        echo -e "${GREEN}$app_name shortcuts activated!${NC}"
-        echo "Press Tab + letter to trigger shortcuts"
-    else
-        echo -e "${RED}Failed to start tab monitor${NC}"
-        return 1
-    fi
-}
-
-# 停止全局快捷键
-stop_global_shortcuts() {
-    echo -e "${CYAN}Stopping global shortcuts...${NC}"
-
-    local pids=$(pgrep -f "tab_monitor")
-    if [ -n "$pids" ]; then
-        kill $pids 2>/dev/null
-        sleep 1
-        if pgrep -f "tab_monitor" > /dev/null; then
-            kill -9 $pids 2>/dev/null
-        fi
-        echo -e "${GREEN}Tab monitor stopped${NC}"
-    else
-        echo "Tab monitor not running"
-    fi
-}
-
-# 显示状态
-show_status() {
-    clear_screen
-
-    if ! check_config; then
-        return 1
-    fi
-
-    local work_dir=$(get_config_safe "paths.work_directory" "Unknown")
-    local app_name=$(get_config_safe "ui.app_name" "ProTab")
-    local shortcuts_count=$(get_config "keyboard.shortcuts" | jq -r 'length' 2>/dev/null || echo "Unknown")
-
-    echo -e "${WHITE}System Status:${NC}"
-    echo "============="
-    echo "Configuration: $CONFIG_FILE"
-    echo "Work Directory: $work_dir"
-    echo "App Name: $app_name"
-    echo "Shortcuts Count: $shortcuts_count"
-    echo
-
-    # 检查进程状态
-    if pgrep -f "tab_monitor" > /dev/null; then
-        echo -e "Tab Monitor: ${GREEN}Running${NC}"
-    else
-        echo -e "Tab Monitor: ${RED}Stopped${NC}"
-    fi
-
-    # 检查API状态
-    local api_name=$(get_config_safe "services.api.name" "copilot-api")
-    if pgrep -f "$api_name" > /dev/null; then
-        echo -e "API Service: ${GREEN}Running${NC}"
-    else
-        echo -e "API Service: ${RED}Stopped${NC}"
-    fi
-
-    echo
-}
-
-# 显示快捷键帮助
-show_shortcuts() {
-    clear_screen
-
-    if ! check_config; then
-        return 1
-    fi
-
-    echo -e "${WHITE}Available Shortcuts:${NC}"
-    echo "==================="
-    echo "Press Tab + letter to trigger:"
-    echo
-
-    # 获取快捷键映射
-    local shortcuts=$(get_config "keyboard.shortcuts")
-    if command -v jq &> /dev/null && [ -n "$shortcuts" ]; then
-        echo "$shortcuts" | jq -r 'to_entries[] | "  Tab + \(.key) -> \(.value)"' 2>/dev/null | sort
-    else
-        echo "  Tab + c -> start_api.sh"
-        echo "  Tab + a -> auth_api.sh"
-        echo "  Tab + m -> edit_claude_md.sh"
-        echo "  Tab + j -> edit_settings_json.sh"
-        echo "  Tab + l -> new_claude_code.sh"
-        echo "  Tab + t -> new_terminal.sh"
-        echo "  Tab + s -> screenshot.sh"
-        echo "  Tab + r -> clean_ram.sh"
-        echo "  And more..."
-    fi
-
-    echo
-    echo "Note: Shortcuts work globally when tab monitor is running"
-}
-
-# 显示主菜单
-show_menu() {
-    clear_screen
-
-    echo -e "${WHITE}Choose an option:${NC}"
-    echo
-    echo -e "${GREEN}1.${NC} Show Status (显示状态)"
-    echo -e "${GREEN}2.${NC} Start Global Shortcuts (启动全局快捷键)"
-    echo -e "${GREEN}3.${NC} Stop Global Shortcuts (停止全局快捷键)"
-    echo -e "${GREEN}4.${NC} Show Shortcuts Help (快捷键帮助)"
-    echo -e "${GREEN}5.${NC} Configuration (配置管理)"
-    echo -e "${GREEN}6.${NC} Build & Compile (编译程序)"
-    echo -e "${GREEN}7.${NC} System Tools (系统工具)"
-    echo
-    echo -e "${RED}0.${NC} Exit (退出)"
-    echo
-}
-
-# 配置管理菜单
-config_menu() {
-    echo -e "${CYAN}Opening configuration wizard...${NC}"
-    if [ -f "$SCRIPT_DIR/config.command" ]; then
-        "$SCRIPT_DIR/config.command"
-    else
-        echo -e "${RED}Configuration wizard not found${NC}"
-        read -p "Press Enter to continue..."
-    fi
-}
-
-# 编译菜单
-build_menu() {
-    clear_screen
-    echo -e "${YELLOW}${BOLD}Build & Compile${NC}"
-    echo "==============="
-    echo
-
-    if ! check_dependencies; then
-        read -p "Press Enter to continue..."
-        return
-    fi
-
-    if ! check_config; then
-        return
-    fi
-
-    local work_dir=$(get_config_safe "paths.work_directory" "$SCRIPT_DIR")
-
-    echo "Work Directory: $work_dir"
-    echo
-
-    if [ -f "$work_dir/build.sh" ]; then
-        echo "Running build script..."
-        cd "$work_dir"
-        ./build.sh
-    else
-        echo "Manual compilation..."
-        cd "$work_dir"
-        swiftc ProTabConfig.swift tab_monitor.swift -o tab_monitor
-        if [ $? -eq 0 ]; then
-            chmod +x tab_monitor
-            echo -e "${GREEN}Compilation successful${NC}"
-        else
-            echo -e "${RED}Compilation failed${NC}"
-        fi
-    fi
-
-    echo
-    read -p "Press Enter to continue..."
-}
-
-# 系统工具菜单
-system_tools_menu() {
-    clear_screen
-    echo -e "${YELLOW}${BOLD}System Tools${NC}"
-    echo "============"
-    echo
-
-    echo "1. Clean RAM (清理内存)"
-    echo "2. Network Test (网络测试)"
-    echo "3. Screenshot (截图)"
-    echo "4. Force Quit Apps (强制退出应用)"
-    echo "0. Back (返回)"
-    echo
-
-    read -p "Choose an option: " choice
-
-    case "$choice" in
-        1)
-            if [ -f "$SCRIPT_DIR/shortcuts/clean_ram.sh" ]; then
-                "$SCRIPT_DIR/shortcuts/clean_ram.sh"
-            fi
-            ;;
-        2)
-            if [ -f "$SCRIPT_DIR/shortcuts/network_test.sh" ]; then
-                "$SCRIPT_DIR/shortcuts/network_test.sh"
-            fi
-            ;;
-        3)
-            if [ -f "$SCRIPT_DIR/shortcuts/screenshot.sh" ]; then
-                "$SCRIPT_DIR/shortcuts/screenshot.sh"
-            fi
-            ;;
-        4)
-            if [ -f "$SCRIPT_DIR/shortcuts/open_force_quit.sh" ]; then
-                "$SCRIPT_DIR/shortcuts/open_force_quit.sh"
-            fi
-            ;;
-        0) return ;;
-    esac
-
-    read -p "Press Enter to continue..."
 }
 
 # 主循环
 main_loop() {
-    while true; do
-        show_menu
-        read -p "Enter your choice: " choice
+    # 首次启动检测
+    first_time_setup
 
-        case "$choice" in
-            1) show_status; read -p "Press Enter to continue..." ;;
-            2) setup_global_shortcuts; read -p "Press Enter to continue..." ;;
-            3) stop_global_shortcuts; read -p "Press Enter to continue..." ;;
-            4) show_shortcuts; read -p "Press Enter to continue..." ;;
-            5) config_menu ;;
-            6) build_menu ;;
-            7) system_tools_menu ;;
-            0)
-                echo -e "${GREEN}Thank you for using ProTab!${NC}"
-                exit 0
+    # 设置全局快捷键
+    setup_global_shortcuts
+
+    while true; do
+        clear_screen
+        show_menu
+
+        # 读取用户输入
+        read -n 1 choice
+        echo  # 换行
+
+        case $choice in
+            c)
+                # 检查并关闭现有的copilot-api进程
+                existing_pid=$(pgrep -f "copilot-api")
+                if [ -n "$existing_pid" ]; then
+                    echo "Existed copilot-api process (PID: $existing_pid), closing..."
+
+                    # 关闭包含copilot-api的终端窗口/标签页
+                    osascript -e "
+                        tell application \"Terminal\"
+                            repeat with theWindow in windows
+                                repeat with theTab in tabs of theWindow
+                                    try
+                                        set tabContents to (do shell script \"ps aux | grep copilot-api | grep -v grep | awk '{print \\$2}'\" )
+                                        if tabContents contains \"$existing_pid\" then
+                                            close theTab
+                                            exit repeat
+                                        end if
+                                    end try
+                                end repeat
+                            end repeat
+                        end tell
+                    " 2>/dev/null || true
+
+                    # 或者使用更简单的方法：根据窗口标题关闭
+                    osascript -e "
+                        tell application \"Terminal\"
+                            repeat with theWindow in windows
+                                repeat with theTab in tabs of theWindow
+                                    if custom title of theTab contains \"Copilot API Server\" then
+                                        close theTab
+                                        exit repeat
+                                    end if
+                                end repeat
+                            end repeat
+                        end tell
+                    " 2>/dev/null || true
+
+                    # 终止进程
+                    kill $existing_pid
+                    sleep 1
+                    # 等待进程完全结束
+                    while pgrep -f "copilot-api" > /dev/null; do
+                        sleep 0.5
+                    done
+                fi
+
+                run_in_new_terminal "copilot-api start" "Copilot API Server"
+                osascript -e 'display notification "Copilot API started" with title "Cozy"'
+                ;;
+            a)
+                run_in_new_terminal "copilot-api auth" "Copilot API Auth"
+                osascript -e 'display notification "Copilot API auth started" with title "Cozy"'
+                ;;
+            m)
+                claude_path=$(get_cached_claude_path)
+                open "$claude_path/CLAUDE.md"
+                osascript -e 'display notification "Claude.md opened" with title "Cozy"'
+                ;;
+            j)
+                claude_path=$(get_cached_claude_path)
+                open "$claude_path/settings.json"
+                osascript -e 'display notification "Settings.json opened" with title "Cozy"'
+                ;;
+            u)
+                run_in_new_terminal "npm install -g @anthropic-ai/claude-code@latest" "Claude Code 升级"
+                osascript -e 'display notification "Claude Code update started" with title "Cozy"'
+                ;;
+            f)
+                osascript -e "tell application \"System Events\" to key code 53 using {option down, command down}"
+                osascript -e 'display notification "Force Quit opened" with title "Cozy"'
+                ;;
+            t)
+                osascript -e "tell application \"Terminal\" to do script \"\""
+                osascript -e 'display notification "New terminal opened" with title "Cozy"'
+                ;;
+            p)
+                osascript -e "tell application \"Safari\" to activate" -e "tell application \"System Events\" to keystroke \"n\" using {command down, shift down}"
+                osascript -e 'display notification "Private tab opened" with title "Cozy"'
+                ;;
+            l)
+                run_in_new_terminal "claude" "Claude Code"
+                osascript -e 'display notification "Claude Code started" with title "Cozy"'
+                ;;
+            r)
+                clear_system_memory >/dev/null 2>&1
+                ;;
+            q)
+                test_network_connection
+                ;;
+            s)
+                screencapture ~/Desktop/screenshot_$(date +%Y%m%d_%H%M%S).png
+                osascript -e 'display notification "Screenshot saved to Desktop" with title "Cozy"'
+                ;;
+            v)
+                screencapture -v ~/Desktop/recording_$(date +%Y%m%d_%H%M%S).mov >/dev/null 2>&1
+                osascript -e 'display notification "Recording saved to Desktop" with title "Cozy"'
+                ;;
+            x)
+                local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                "$script_dir/shortcuts/toggle_vpn.sh" >/dev/null 2>&1
                 ;;
             *)
-                echo -e "${RED}Invalid choice${NC}"
-                sleep 1
                 ;;
         esac
     done
 }
 
-# 主程序入口
-main() {
-    # 处理命令行参数
-    case "${1:-}" in
-        "start")
-            setup_global_shortcuts
-            ;;
-        "stop")
-            stop_global_shortcuts
-            ;;
-        "status")
-            show_status
-            read -p "Press Enter to continue..."
-            ;;
-        "config")
-            config_menu
-            ;;
-        "build")
-            build_menu
-            ;;
-        "help"|"-h"|"--help")
-            echo "ProTab - Global Shortcuts System"
-            echo "Usage: $0 [start|stop|status|config|build|help]"
-            echo
-            echo "Commands:"
-            echo "  start   - Start global shortcuts"
-            echo "  stop    - Stop global shortcuts"
-            echo "  status  - Show system status"
-            echo "  config  - Open configuration"
-            echo "  build   - Build/compile system"
-            echo "  help    - Show this help"
-            echo
-            echo "Run without arguments for interactive menu"
-            ;;
-        "")
-            # 检查基本依赖
-            check_dependencies
-
-            # 运行主循环
-            main_loop
-            ;;
-        *)
-            echo "Unknown command: $1"
-            echo "Use '$0 help' for usage information"
-            exit 1
-            ;;
-    esac
-}
-
-# 运行主程序
-main "$@"
+# 启动主程序
+main_loop
