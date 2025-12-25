@@ -80,18 +80,16 @@ clear_screen() {
 }
 
 
-# 设置全局快捷键
+# Setup global shortcuts
 setup_global_shortcuts() {
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    # 检查是否已有守护进程运行
-    if pgrep -f "tab_monitor" > /dev/null; then
-        return 0
-    fi
+    # Kill any existing monitor
+    pkill -f "tab_monitor" 2>/dev/null
 
-    # 编译Tab监听器
+    # Compile if needed
     if [ ! -f "$script_dir/tab_monitor" ]; then
-        if swiftc "$script_dir/swift/ProTabConfig.swift" "$script_dir/swift/tab_monitor.swift" "$script_dir/swift/main.swift" -o "$script_dir/tab_monitor" 2>/dev/null; then
+        if swiftc "$script_dir/tab_monitor.swift" -o "$script_dir/tab_monitor" 2>/dev/null; then
             echo "Ready"
         else
             echo "Failed"
@@ -99,8 +97,12 @@ setup_global_shortcuts() {
         fi
     fi
 
-    # 后台运行Tab键监听器
+    # Start monitor in background
     "$script_dir/tab_monitor" &
+    TAB_MONITOR_PID=$!
+    
+    # Kill monitor when script exits
+    trap "kill $TAB_MONITOR_PID 2>/dev/null" EXIT
 }
 
 # 显示菜单
