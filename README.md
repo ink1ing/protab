@@ -1,14 +1,13 @@
-# ProTab - macOS/Windows Global Shortcut System
+# ProTab - Global Shortcut System
 
-ProTab 是一个强大的全局快捷键系统，通过 Tab + 字母键快速执行各种复杂指令，提升工作效率。
+一个全局快捷键系统，通过 Tab + 字母 执行指令，提升效率。
 
 ## 🚀 功能特性
 
 - **跨平台**: 支持 macOS 和 Windows
-- **快捷键触发**: Tab + 字母键组合，无冲突，好记忆，全局生效
-- **高度可配置**: 支持自定义快捷键和脚本
+- **快捷键触发**: Tab + 字母键组合，无冲突好记忆，全局生效
 - **一键启动**: 双击 `.command` (macOS) 或 `.bat` (Windows) 即可运行
-- **内存安全**: Rust 实现高效内存清理 (macOS)
+- **内存安全**: Rust 高效内存清理 (仅macOS)
 
 ## 📋 系统要求
 
@@ -29,16 +28,16 @@ cd ProTab
 ```
 
 ### macOS
-双击 `protab.command` 即可启动（首次自动编译）
+双击 `protab.command` 启动（自动编译）
 
 ### Windows
-双击 `protab.bat` 即可启动
+双击 `protab.bat` 启动
 
 ## 🎯 快捷键列表
 
 | 快捷键 | 功能 | macOS | Windows |
 |--------|------|:-----:|:-------:|
-| Tab + a | 启动/重启 Anti-API | ✅ | ✅ |
+| Tab + a | 启动Anti-api | ✅ | ✅ |
 | Tab + c | 关闭空闲终端 | ✅ | ✅ |
 | Tab + d | 编辑 agents.md (Codex) | ✅ | ✅ |
 | Tab + m | 编辑 claude.md | ✅ | ✅ |
@@ -51,7 +50,7 @@ cd ProTab
 | Tab + r | 清理内存 | ✅ | - |
 | Tab + s | 截图 | ✅ | - |
 | Tab + v | 录屏 | ✅ | - |
-| Tab + x | 切换 VPN | ✅ | - |
+| Tab + x | 开关 VPN | ✅ | - |
 
 ## 📂 项目结构
 
@@ -83,21 +82,17 @@ ProTab/
 ## 📝 更新日志
 
 ### v2.0.0 (2026-01-08)
-- ✅ 新增 Windows 支持
-- ✅ 新增 Codex 快捷键 (d, o, p)
-- ✅ 新增 Anti-API 启动快捷键 (a)
-- ✅ 新增关闭空闲终端 (c)
-- ✅ 简化为一键启动
-- ✅ 修复 page_size 硬编码问题
+- 新增 Windows 支持
+- 新增 Codex 快捷键 (d, o, p)
+- 新增 Anti-API 启动快捷键 (a)
+- 新增关闭空闲终端 (c)
+- 简化为一键启动
+- 修复 page_size 硬编码问题
 
 ### v1.0.0 (2024-12-23)
-- ✅ 初始版本发布
-- ✅ macOS 全局快捷键系统
+- 初始版本发布
+- macOS 全局快捷键系统
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
----
-
-**ProTab** - 让快捷键成为你的超能力 ⚡
+MIT License - 详见 [LICENSE](LICENSE) 
