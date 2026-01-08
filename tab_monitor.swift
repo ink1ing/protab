@@ -51,8 +51,6 @@ class TabKeyMonitor {
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        
-        print("ProTab started")
     }
 
     private func handleKeyEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -100,34 +98,36 @@ class TabKeyMonitor {
         let scriptPath: String
 
         switch key.lowercased() {
-        case "t":
-            scriptPath = "\(scriptDir)/shortcuts/new_terminal.sh"
+        case "a":
+            scriptPath = "\(scriptDir)/shortcuts/start_anti_api.sh"
         case "c":
-            scriptPath = "\(scriptDir)/shortcuts/new_claude_code.sh"
-        case "p":
-            scriptPath = "\(scriptDir)/shortcuts/new_private_tab.sh"
-        case "s":
-            scriptPath = "\(scriptDir)/shortcuts/screenshot.sh"
-        case "v":
-            scriptPath = "\(scriptDir)/shortcuts/record.sh"
-        case "r":
-            scriptPath = "\(scriptDir)/shortcuts/clean_ram.sh"
-        case "n":
-            scriptPath = "\(scriptDir)/shortcuts/network_test.sh"
-        case "q":
-            scriptPath = "\(scriptDir)/shortcuts/open_force_quit.sh"
-        case "x":
-            scriptPath = "\(scriptDir)/shortcuts/toggle_vpn.sh"
+            scriptPath = "\(scriptDir)/shortcuts/close_idle_terminals.sh"
+        case "d":
+            scriptPath = "\(scriptDir)/shortcuts/edit_agents_md.sh"
         case "m":
             scriptPath = "\(scriptDir)/shortcuts/edit_claude_md.sh"
         case "j":
             scriptPath = "\(scriptDir)/shortcuts/edit_settings_json.sh"
+        case "o":
+            scriptPath = "\(scriptDir)/shortcuts/new_codex.sh"
         case "l":
             scriptPath = "\(scriptDir)/shortcuts/new_claude_code.sh"
+        case "p":
+            scriptPath = "\(scriptDir)/shortcuts/update_codex.sh"
         case "u":
             scriptPath = "\(scriptDir)/shortcuts/update_claude_code.sh"
         case "f":
             scriptPath = "\(scriptDir)/shortcuts/open_force_quit.sh"
+        case "t":
+            scriptPath = "\(scriptDir)/shortcuts/new_terminal.sh"
+        case "r":
+            scriptPath = "\(scriptDir)/shortcuts/clean_ram.sh"
+        case "s":
+            scriptPath = "\(scriptDir)/shortcuts/screenshot.sh"
+        case "v":
+            scriptPath = "\(scriptDir)/shortcuts/record.sh"
+        case "x":
+            scriptPath = "\(scriptDir)/shortcuts/toggle_vpn.sh"
         default:
             return
         }

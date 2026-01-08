@@ -145,6 +145,19 @@ pub struct MemoryInfo {
     pub speculative: u64,
 }
 
+/// 动态获取系统页面大小
+pub fn get_page_size() -> Result<u64> {
+    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    
+    if page_size <= 0 {
+        // 回退到默认值（Apple Silicon 通常使用 16KB）
+        eprintln!("Warning: Failed to get page size, using default 16KB");
+        return Ok(16384);
+    }
+    
+    Ok(page_size as u64)
+}
+
 /// 获取总物理内存
 pub fn get_total_memory() -> Result<u64> {
     let mut size = std::mem::size_of::<u64>();
@@ -190,8 +203,8 @@ pub fn get_memory_info() -> Result<MemoryInfo> {
         return Err(anyhow!("Failed to get memory statistics: {}", result));
     }
 
-    // Use correct page size (从vm_stat显示为16KB)
-    let page_size = 16384u64;
+    // 动态获取系统页面大小
+    let page_size = get_page_size()?;
 
     let active = vm_stats.active_count as u64 * page_size;
     let inactive = vm_stats.inactive_count as u64 * page_size;
