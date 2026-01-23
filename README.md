@@ -2,6 +2,10 @@
 
 一个全局快捷键系统，通过 Tab + 字母 执行指令，提升效率。
 
+<p align="center">
+  <img src="assets/demo.gif" alt="ProTab Demo" width="600">
+</p>
+
 ## 🚀 功能特性
 
 - **跨平台**: 支持 macOS 和 Windows
