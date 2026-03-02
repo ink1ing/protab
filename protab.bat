@@ -15,7 +15,6 @@ echo  [34m╚═╝     ╚═╝  ╚═╝ ╚═════╝    ╚═╝ 
 echo.
 echo Protab v2.0.1
 echo.
-echo a - start Anti-API
 echo m - edit claude.md
 echo d - edit agents.md
 echo j - edit settings.json
@@ -27,30 +26,19 @@ echo t - new terminal
 echo c - close terminal
 echo q - quit
 echo.
-choice /c amdjolopuctq /n /m ""
+choice /c mdjoluptcq /n /m ""
 
-if errorlevel 12 goto quit
-if errorlevel 11 goto new_terminal
-if errorlevel 10 goto close_idle
-if errorlevel 9 goto update_codex
-if errorlevel 8 goto update_claude
-if errorlevel 7 goto new_claude
-if errorlevel 6 goto new_codex
-if errorlevel 5 goto edit_settings
-if errorlevel 4 goto edit_agents_md
-if errorlevel 3 goto edit_claude_md
-if errorlevel 2 goto start_anti_api
-if errorlevel 1 goto start_anti_api
+if errorlevel 10 goto quit
+if errorlevel 9 goto close_idle
+if errorlevel 8 goto new_terminal
+if errorlevel 7 goto update_codex
+if errorlevel 6 goto update_claude
+if errorlevel 5 goto new_claude
+if errorlevel 4 goto new_codex
+if errorlevel 3 goto edit_settings
+if errorlevel 2 goto edit_agents_md
+if errorlevel 1 goto edit_claude_md
 
-goto main
-
-:start_anti_api
-taskkill /f /im "anti-api.exe" >nul 2>&1
-for %%p in (
-    "%USERPROFILE%\Desktop\anti-api\anti-api-start.bat"
-    "%USERPROFILE%\anti-api\anti-api-start.bat"
-    "C:\anti-api\anti-api-start.bat"
-) do if exist "%%~p" (start "" "%%~p" & goto main)
 goto main
 
 :edit_claude_md

@@ -41,7 +41,6 @@ cd ProTab
 
 | 快捷键 | 功能 | macOS | Windows |
 |--------|------|:-----:|:-------:|
-| Tab + a | 启动Anti-api | ✅ | ✅ |
 | Tab + c | 关闭空闲终端 | ✅ | ✅ |
 | Tab + d | 编辑 agents.md (Codex) | ✅ | ✅ |
 | Tab + m | 编辑 claude.md | ✅ | ✅ |

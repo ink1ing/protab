@@ -1,5 +1,8 @@
 #!/bin/bash
 # Tab+P - 更新 Codex CLI
 
-osascript -e "tell application \"Terminal\" to do script \"npm install -g @openai/codex@latest\""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/terminal_helper.sh"
+
+run_in_terminal "npm install -g @openai/codex@latest"
 osascript -e 'display notification "Codex update started" with title "ProTab"'

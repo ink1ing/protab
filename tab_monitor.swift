@@ -4,8 +4,9 @@ import Carbon
 class TabKeyMonitor {
     private var eventTap: CFMachPort?
     private var isWaitingForLetter = false
+    private var isTabHeld = false
     private var tabPressTime: DispatchTime?
-    
+
     // Get script directory (executable location)
     private var scriptDir: String {
         if let path = Bundle.main.executablePath {
@@ -15,16 +16,7 @@ class TabKeyMonitor {
     }
 
     func start() {
-        // Request accessibility permission
-        if !AXIsProcessTrusted() {
-            let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as NSString: true]
-            _ = AXIsProcessTrustedWithOptions(options)
-
-            print("Accessibility permission required")
-            print("Please add this app in System Settings > Privacy & Security > Accessibility")
-            return
-        }
-
+        // Start listener without requesting Accessibility control permission.
         setupEventTap()
     }
 
@@ -34,7 +26,7 @@ class TabKeyMonitor {
         eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .defaultTap,
+            options: .listenOnly,
             eventsOfInterest: CGEventMask(eventMask),
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 let monitor = Unmanaged<TabKeyMonitor>.fromOpaque(refcon!).takeUnretainedValue()
@@ -62,9 +54,16 @@ class TabKeyMonitor {
             return Unmanaged.passUnretained(event)
         }
 
+        if type == .keyUp && keyCode == 48 {
+            isTabHeld = false
+            isWaitingForLetter = false
+            return Unmanaged.passUnretained(event)
+        }
+
         if type == .keyDown {
             // Tab key pressed (keyCode 48)
             if keyCode == 48 {
+                isTabHeld = true
                 isWaitingForLetter = true
                 tabPressTime = DispatchTime.now()
 
@@ -72,19 +71,17 @@ class TabKeyMonitor {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                     self?.isWaitingForLetter = false
                 }
-
-                // Block Tab default behavior
-                return nil
+                return Unmanaged.passUnretained(event)
             }
 
             // If waiting for letter key
-            if isWaitingForLetter {
+            if isWaitingForLetter && isTabHeld {
                 if let tabTime = tabPressTime, DispatchTime.now() < tabTime + .milliseconds(500) {
                     let letter = keyCodeToLetter(keyCode)
                     if !letter.isEmpty {
                         executeCommand(for: letter)
                         isWaitingForLetter = false
-                        return nil // Block letter key default behavior
+                        return Unmanaged.passUnretained(event)
                     }
                 }
                 isWaitingForLetter = false
@@ -98,44 +95,67 @@ class TabKeyMonitor {
         let scriptPath: String
 
         switch key.lowercased() {
-        case "a":
-            scriptPath = "\(scriptDir)/shortcuts/start_anti_api.sh"
-        case "c":
-            scriptPath = "\(scriptDir)/shortcuts/close_idle_terminals.sh"
-        case "d":
-            scriptPath = "\(scriptDir)/shortcuts/edit_agents_md.sh"
-        case "m":
-            scriptPath = "\(scriptDir)/shortcuts/edit_claude_md.sh"
-        case "j":
-            scriptPath = "\(scriptDir)/shortcuts/edit_settings_json.sh"
-        case "o":
-            scriptPath = "\(scriptDir)/shortcuts/new_codex.sh"
-        case "l":
-            scriptPath = "\(scriptDir)/shortcuts/new_claude_code.sh"
-        case "p":
-            scriptPath = "\(scriptDir)/shortcuts/update_codex.sh"
-        case "u":
-            scriptPath = "\(scriptDir)/shortcuts/update_claude_code.sh"
-        case "f":
-            scriptPath = "\(scriptDir)/shortcuts/open_force_quit.sh"
+        // Terminal & IDE
         case "t":
             scriptPath = "\(scriptDir)/shortcuts/new_terminal.sh"
+        case "l":
+            scriptPath = "\(scriptDir)/shortcuts/new_claude_code.sh"
+        case "o":
+            scriptPath = "\(scriptDir)/shortcuts/new_codex.sh"
+        case "u":
+            scriptPath = "\(scriptDir)/shortcuts/update_claude_code.sh"
+        case "p":
+            scriptPath = "\(scriptDir)/shortcuts/update_codex.sh"
+
+        // Edit files
+        case "m":
+            scriptPath = "\(scriptDir)/shortcuts/edit_claude_md.sh"
+        case "d":
+            scriptPath = "\(scriptDir)/shortcuts/edit_agents_md.sh"
+        case "j":
+            scriptPath = "\(scriptDir)/shortcuts/edit_settings_json.sh"
+
+        // Browser
+        case "b":
+            scriptPath = "\(scriptDir)/shortcuts/new_private_tab.sh"
+
+        // System
         case "r":
             scriptPath = "\(scriptDir)/shortcuts/clean_ram.sh"
+        case "n":
+            scriptPath = "\(scriptDir)/shortcuts/network_test.sh"
+        case "x":
+            scriptPath = "\(scriptDir)/shortcuts/toggle_vpn.sh"
+        case "q":
+            scriptPath = "\(scriptDir)/shortcuts/open_force_quit.sh"
+
+        // Media
         case "s":
             scriptPath = "\(scriptDir)/shortcuts/screenshot.sh"
         case "v":
             scriptPath = "\(scriptDir)/shortcuts/record.sh"
-        case "x":
-            scriptPath = "\(scriptDir)/shortcuts/toggle_vpn.sh"
+
+        // Tools
+        case "c":
+            scriptPath = "\(scriptDir)/shortcuts/close_idle_terminals.sh"
+
         default:
-            return
+            // Try custom script
+            let customPath = "\(scriptDir)/shortcuts/custom_\(key.lowercased()).sh"
+            if FileManager.default.fileExists(atPath: customPath) {
+                scriptPath = customPath
+            } else {
+                return
+            }
         }
 
         DispatchQueue.global().async {
             let process = Process()
             process.launchPath = "/bin/bash"
             process.arguments = [scriptPath]
+            // Suppress all output
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
             try? process.run()
         }
     }

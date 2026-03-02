@@ -1,5 +1,9 @@
 #!/bin/bash
 # Tab+T - 新建终端
 
-osascript -e 'tell application "Terminal" to do script ""' >/dev/null 2>&1
-osascript -e 'display notification "New terminal" with title "ProTab"'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/terminal_helper.sh"
+
+run_in_terminal ""
+terminal_name=$(get_terminal_name)
+osascript -e "display notification \"New $terminal_name\" with title \"ProTab\""
