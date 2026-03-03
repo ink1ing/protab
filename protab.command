@@ -183,6 +183,39 @@ maybe_request_autostart() {
     set_auto_start_prompted
 }
 
+ensure_preset_shortcuts() {
+    python3 << PYEOF
+import json
+
+preset_shortcuts = {
+    "t": "new_terminal.sh",
+    "l": "new_claude_code.sh",
+    "o": "new_codex.sh",
+    "u": "update_claude_code.sh",
+    "p": "update_codex.sh",
+    "m": "edit_claude_md.sh",
+    "d": "edit_agents_md.sh",
+    "j": "edit_settings_json.sh",
+    "b": "new_private_tab.sh",
+    "r": "clean_ram.sh",
+    "n": "network_test.sh",
+    "x": "toggle_vpn.sh",
+    "q": "open_force_quit.sh",
+    "s": "screenshot.sh",
+    "v": "record.sh",
+    "c": "close_idle_terminals.sh",
+    "h": "custom_h.sh",
+    "a": "custom_a.sh",
+}
+
+with open("$CONFIG_FILE", "r") as f:
+    config = json.load(f)
+config.setdefault("keyboard", {})["shortcuts"] = preset_shortcuts
+with open("$CONFIG_FILE", "w") as f:
+    json.dump(config, f, indent=2)
+PYEOF
+}
+
 # ============================================
 # Display Functions
 # ============================================
@@ -465,6 +498,9 @@ config_mode() {
 main() {
     # Kill existing monitor
     pkill -f "tab_monitor" 2>/dev/null
+
+    # Keep built-in shortcut mapping fixed to presets.
+    ensure_preset_shortcuts
 
     # Compile if needed (silent)
     if [ ! -f "$SCRIPT_DIR/tab_monitor" ] || [ "$SCRIPT_DIR/tab_monitor.swift" -nt "$SCRIPT_DIR/tab_monitor" ]; then

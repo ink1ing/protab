@@ -138,6 +138,10 @@ class TabKeyMonitor {
         // Tools
         case "c":
             scriptPath = "\(scriptDir)/shortcuts/close_idle_terminals.sh"
+        case "h":
+            scriptPath = "\(scriptDir)/shortcuts/custom_h.sh"
+        case "a":
+            scriptPath = "\(scriptDir)/shortcuts/custom_a.sh"
 
         default:
             // Try custom script
