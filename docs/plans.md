@@ -187,7 +187,7 @@ ProTab 是强大的 macOS 全局快捷键系统，通过 Tab + 字母键组合�
 **预期结果**: ✅ 完整的开源项目，包含完善的文档和自动化流程
 
 **完成成果**:
-- ✅ 成功推送到 GitHub: https://github.com/ink1ing/protab
+- ✅ 成功推送到 GitHub: https://github.com/silasxbt/protab
 - ✅ 完整的项目文档和README
 - ✅ MIT开源许可证
 - ✅ 完善的.gitignore和安全检查

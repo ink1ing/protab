@@ -27,7 +27,7 @@
 ## 🔧 安装方法
 
 ```bash
-git clone https://github.com/ink1ing/protab.git
+git clone https://github.com/silasxbt/protab.git
 cd ProTab
 ```
 
